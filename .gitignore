@@ -1,0 +1,28 @@
+# React
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.DS_Store
+
+# Python
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/*.pyd
+backend/.Python
+backend/env/
+backend/venv/
+backend/.venv/
+backend/pip-log.txt
+backend/pip-delete-this-directory.txt
+backend/.coverage
+backend/.dist/
+backend/db.sqlite3
+backend/*.sqlite3
+
+# Generic
+.DS_Store
+.env
+.vscode/
+.idea/
+*.log
