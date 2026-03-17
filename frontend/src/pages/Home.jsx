@@ -4,11 +4,13 @@ import api from "../api/client.js";
 import ProductCard from "../components/ProductCard.jsx";
 import { useAuth } from "../state/AuthContext.jsx";
 import LandingPage from "./LandingPage.jsx";
+import { useSettings } from "../state/SettingsContext.jsx";
 
 const CATEGORIES = ["All", "KHAKRA", "FLAVOURED ICE"];
 
 export default function Home() {
   const { user, loading: authLoading, isAdmin } = useAuth();
+  const { settings } = useSettings();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("All");
@@ -41,14 +43,24 @@ export default function Home() {
     <>
       <main className="hd-landing">
         {/* ── Hero Section matching Landing Page but without Auth Links ── */}
-        <section className="hd-hero">
+        <section className="hd-hero" style={settings.hero_image_url ? { backgroundImage: `url(${settings.hero_image_url})` } : {}}>
           <div className="hd-hero-overlay"></div>
           <div className="hd-hero-content" style={{ marginTop: "1rem" }}>
             <h1 className="hd-hero-title">
-              <span className="hd-hero-quote">'</span>HD Foods<br />and Masale
+              {settings.hero_title ? (
+                <span dangerouslySetInnerHTML={{ __html: `<span className="hd-hero-quote">'</span>${settings.hero_title.replace(/\n/g, '<br />')}` }} />
+              ) : (
+                <>
+                  <span className="hd-hero-quote">'</span>HD Foods<br />and Masale
+                </>
+              )}
             </h1>
             <p className="hd-hero-subtitle">
-              Authentic Maharashtrian<br />Khakhra &amp; Spices
+              {settings.hero_subtitle ? (
+                <span dangerouslySetInnerHTML={{ __html: settings.hero_subtitle.replace(/\n/g, '<br />') }} />
+              ) : (
+                <>Authentic Maharashtrian<br />Khakhra &amp; Spices</>
+              )}
             </p>
           </div>
         </section>

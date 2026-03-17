@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
 import api from "../api/client.js";
 import { useAuth } from "../state/AuthContext.jsx";
+import { useSettings } from "../state/SettingsContext.jsx";
+
+const API_BASE = "http://localhost:8000";
 
 const STATUS_FLOW = ["pending", "shipped", "delivered"];
 
@@ -40,6 +43,22 @@ export default function AdminDashboard() {
     name: "", description: "", price: "", stock: "", discount: "", image_url: "",
   });
 
+  const { settings, updateLandingPageSettings } = useSettings();
+  const [landingForm, setLandingForm] = useState({
+    hero_title: "",
+    hero_subtitle: "",
+    hero_image_url: "",
+    story_title: "",
+    story_paragraph1: "",
+    story_paragraph2: "",
+    story_image_url: "",
+    shopnow_title: "",
+    shopnow_subtitle: "",
+    shopnow_image_url: "",
+  });
+
+  const [editingProduct, setEditingProduct] = useState(null);
+
   // Inline discount editor
   const [editingDiscount, setEditingDiscount] = useState(null);
   const [discountVal, setDiscountVal] = useState("");
@@ -63,6 +82,23 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => { loadData(); }, []);
+
+  useEffect(() => {
+    if (settings) {
+      setLandingForm({
+        hero_title: settings.hero_title || "",
+        hero_subtitle: settings.hero_subtitle || "",
+        hero_image_url: settings.hero_image_url || "",
+        story_title: settings.story_title || "",
+        story_paragraph1: settings.story_paragraph1 || "",
+        story_paragraph2: settings.story_paragraph2 || "",
+        story_image_url: settings.story_image_url || "",
+        shopnow_title: settings.shopnow_title || "",
+        shopnow_subtitle: settings.shopnow_subtitle || "",
+        shopnow_image_url: settings.shopnow_image_url || "",
+      });
+    }
+  }, [settings]);
 
   const updateOrderStatus = async (id, status) => {
     await api.patch(`/orders/${id}/status`, null, { params: { status_value: status } });
@@ -103,10 +139,57 @@ export default function AdminDashboard() {
     loadData();
   };
 
+  const handleUpdateLanding = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await updateLandingPageSettings(landingForm);
+      setSuccessMsg("Landing page updated successfully!");
+      setTimeout(() => setSuccessMsg(""), 3000);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdateProduct = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await api.patch(`/products/${editingProduct.id}`, {
+        name: editingProduct.name,
+        description: editingProduct.description,
+        price: parseFloat(editingProduct.price),
+        stock: parseInt(editingProduct.stock, 10),
+        discount: parseFloat(editingProduct.discount || 0),
+        image_url: editingProduct.image_url
+      });
+      setSuccessMsg("Product updated successfully!");
+      setEditingProduct(null);
+      setTimeout(() => setSuccessMsg(""), 3000);
+      loadData();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdateProductImage = async (productId, imageUrl) => {
+    try {
+      await api.patch(`/products/${productId}`, { image_url: imageUrl });
+      setSuccessMsg("Product image updated!");
+      setTimeout(() => setSuccessMsg(""), 3000);
+      loadData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const TABS = [
     { id: "overview", icon: "📊", label: "Overview" },
     { id: "orders", icon: "📦", label: "Orders" },
     { id: "products", icon: "🛒", label: "Products" },
+    { id: "landing", icon: "🏠", label: "Landing Page" },
   ];
 
   const statCards = stats ? [
@@ -247,6 +330,63 @@ export default function AdminDashboard() {
         {/* ── PRODUCTS TAB ── */}
         {!loading && activeTab === "products" && (
           <>
+            {/* Edit Product Form (Overlay/Modal style) */}
+            {editingProduct && (
+              <div style={{
+                position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                background: "rgba(0,0,0,0.5)", zIndex: 9999,
+                display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem"
+              }}>
+                <div style={{ background: "#fff", borderRadius: 20, padding: "2rem", maxWidth: 600, width: "100%", maxHeight: "90vh", overflowY: "auto" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+                    <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800 }}>Edit Product: {editingProduct.name}</h2>
+                    <button onClick={() => setEditingProduct(null)} style={{ background: "none", border: "none", fontSize: "1.5rem", cursor: "pointer" }}>✕</button>
+                  </div>
+
+                  <form onSubmit={handleUpdateProduct}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
+                      <FormField label="Product Name">
+                        <input type="text" value={editingProduct.name} onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })} />
+                      </FormField>
+                      <FormField label="Price (₹)">
+                        <input type="number" value={editingProduct.price} onChange={(e) => setEditingProduct({ ...editingProduct, price: e.target.value })} />
+                      </FormField>
+                      <FormField label="Stock">
+                        <input type="number" value={editingProduct.stock} onChange={(e) => setEditingProduct({ ...editingProduct, stock: e.target.value })} />
+                      </FormField>
+                      <FormField label="Discount (%)">
+                        <input type="number" value={editingProduct.discount} onChange={(e) => setEditingProduct({ ...editingProduct, discount: e.target.value })} />
+                      </FormField>
+                      <div style={{ gridColumn: "span 2" }}>
+                        <FormField label="Description">
+                          <textarea rows={3} value={editingProduct.description} onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })}
+                            style={{ padding: ".75rem", borderRadius: 10, border: "1.5px solid #e5e7eb", fontSize: ".9rem" }}
+                          />
+                        </FormField>
+                      </div>
+                      <div style={{ gridColumn: "span 2" }}>
+                        <FormField label="Product Image">
+                          <ImageUploadField
+                            currentValue={editingProduct.image_url}
+                            onUploadSuccess={(url) => setEditingProduct({ ...editingProduct, image_url: url })}
+                          />
+                        </FormField>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "1rem", marginTop: "2rem" }}>
+                      <button type="submit" disabled={submitting} className="btn-primary" style={{ flex: 1, padding: ".8rem" }}>
+                        {submitting ? "Saving..." : "Save Changes"}
+                      </button>
+                      <button type="button" onClick={() => setEditingProduct(null)}
+                        style={{ flex: 1, background: "#f3f4f6", border: "none", borderRadius: 12, fontWeight: 700, cursor: "pointer" }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
             <PageHeader title="Manage Products" subtitle={`${products.length} products in catalogue`} />
 
             {/* Add Product Form */}
@@ -278,9 +418,16 @@ export default function AdminDashboard() {
                     <input type="number" min="0" max="100" step="0.1" placeholder="0"
                       value={newProduct.discount} onChange={(e) => setNewProduct({ ...newProduct, discount: e.target.value })} />
                   </FormField>
-                  <FormField label="Image URL">
+                  <FormField label="Image URL (or upload and preview below)">
                     <input type="text" placeholder="https://..."
                       value={newProduct.image_url} onChange={(e) => setNewProduct({ ...newProduct, image_url: e.target.value })} />
+                  </FormField>
+                  <FormField label="Product Image Preview & Upload">
+                    <ImageUploadField
+                      currentValue={newProduct.image_url}
+                      onUploadSuccess={(url) => setNewProduct({ ...newProduct, image_url: url })}
+                      label="Upload New Photo"
+                    />
                   </FormField>
                 </div>
                 <div style={{ display: "flex", justifyContent: "flex-end", marginTop: ".5rem" }}>
@@ -298,7 +445,7 @@ export default function AdminDashboard() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr>
-                      {["#", "Product", "Price", "Stock", "Discount", "Status", "Actions"].map((h) => (
+                      {["Image", "Name", "Price", "Stock", "Discount", "Status", "Actions"].map((h) => (
                         <th key={h} style={{ padding: ".85rem 1rem", textAlign: "left", fontSize: ".72rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".8px", background: "#f9fafb", borderBottom: "1.5px solid #f3f4f6", whiteSpace: "nowrap" }}>
                           {h}
                         </th>
@@ -311,15 +458,14 @@ export default function AdminDashboard() {
                         onMouseEnter={(e) => e.currentTarget.style.background = "#f9fafb"}
                         onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                       >
-                        <td style={tdStyle}><span style={{ color: "#d1d5db", fontSize: ".8rem" }}>#{p.id}</span></td>
                         <td style={tdStyle}>
-                          <div style={{ display: "flex", alignItems: "center", gap: ".75rem" }}>
-                            <img src={p.image_url || "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=60&q=60"}
-                              alt={p.name} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 8, background: "#f3f4f6" }}
-                              onError={(e) => { e.target.style.display = "none"; }}
-                            />
-                            <span style={{ fontWeight: 600, color: "#111827", fontSize: ".88rem" }}>{p.name}</span>
-                          </div>
+                          <img src={p.image_url || "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=60&q=60"}
+                            alt={p.name} style={{ width: 50, height: 50, objectFit: "cover", borderRadius: 8, border: "1px solid #f3f4f6" }}
+                            onError={(e) => { e.target.src = "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=60&q=60"; }}
+                          />
+                        </td>
+                        <td style={tdStyle}>
+                          <span style={{ fontWeight: 700, color: "#111827", fontSize: ".9rem" }}>{p.name}</span>
                         </td>
                         <td style={tdStyle}><span style={{ fontWeight: 700, color: "#15803d" }}>₹{Number(p.price).toFixed(0)}</span></td>
                         <td style={tdStyle}>
@@ -349,9 +495,13 @@ export default function AdminDashboard() {
                           }
                         </td>
                         <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                          <button onClick={() => setEditingProduct(p)}
+                            style={{ ...actionBtnStyle, color: "#22c55e", borderColor: "#bbf7d0", background: "#f0fdf4" }}>
+                            Edit
+                          </button>
                           <button onClick={() => { setEditingDiscount(p.id); setDiscountVal(p.discount || "0"); }}
-                            style={{ ...actionBtnStyle, color: "#2563eb", borderColor: "#bfdbfe", background: "#eff6ff" }}>
-                            Set Discount
+                            style={{ ...actionBtnStyle, color: "#2563eb", borderColor: "#bfdbfe", background: "#eff6ff", marginLeft: ".5rem" }}>
+                            Discount
                           </button>
                           <button onClick={() => handleDeleteProduct(p.id, p.name)}
                             style={{ ...actionBtnStyle, color: "#dc2626", borderColor: "#fecaca", background: "#fef2f2", marginLeft: ".5rem" }}>
@@ -370,6 +520,100 @@ export default function AdminDashboard() {
           </>
         )}
 
+
+        {/* ── LANDING PAGE TAB ── */}
+        {!loading && activeTab === "landing" && (
+          <>
+            <PageHeader title="Landing Page Settings" subtitle="Customize titles, text, and images on the main page." />
+
+            <SectionCard title="Edit Landing Page Content">
+              {successMsg && (
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#15803d", padding: ".65rem 1rem", borderRadius: 8, marginBottom: "1rem", fontSize: ".88rem", fontWeight: 600 }}>
+                  ✅ {successMsg}
+                </div>
+              )}
+              <form onSubmit={handleUpdateLanding}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1.5rem" }}>
+
+                  <div style={{ padding: "1.5rem", background: "#f9fafb", borderRadius: 12 }}>
+                    <h4 style={{ marginBottom: "1rem", color: "#111827", fontSize: ".9rem", fontWeight: 700 }}>Hero Section</h4>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                      <FormField label="Hero Title (Use \n for new line)">
+                        <textarea
+                          rows={2}
+                          value={landingForm.hero_title}
+                          onChange={(e) => setLandingForm({ ...landingForm, hero_title: e.target.value })}
+                          placeholder="e.g. HD Foods \n and Masale"
+                        />
+                      </FormField>
+                      <FormField label="Hero Subtitle">
+                        <textarea
+                          rows={2}
+                          value={landingForm.hero_subtitle}
+                          onChange={(e) => setLandingForm({ ...landingForm, hero_subtitle: e.target.value })}
+                          placeholder="e.g. Authentic Maharashtrian \n Khakhra & Spices"
+                        />
+                      </FormField>
+                      <FormField label="Hero Image Upload & Preview">
+                        <ImageUploadField
+                          currentValue={landingForm.hero_image_url}
+                          onUploadSuccess={(url) => setLandingForm({ ...landingForm, hero_image_url: url })}
+                        />
+                      </FormField>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: "1.5rem", background: "#f9fafb", borderRadius: 12 }}>
+                    <h4 style={{ marginBottom: "1rem", color: "#111827", fontSize: ".9rem", fontWeight: 700 }}>Our Story Section</h4>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1rem" }}>
+                      <FormField label="Story Title">
+                        <input type="text" value={landingForm.story_title} onChange={(e) => setLandingForm({ ...landingForm, story_title: e.target.value })} placeholder="Our Humble Beginnings" />
+                      </FormField>
+                      <FormField label="Story Paragraph 1">
+                        <textarea rows={4} value={landingForm.story_paragraph1} onChange={(e) => setLandingForm({ ...landingForm, story_paragraph1: e.target.value })} />
+                      </FormField>
+                      <FormField label="Story Paragraph 2">
+                        <textarea rows={4} value={landingForm.story_paragraph2} onChange={(e) => setLandingForm({ ...landingForm, story_paragraph2: e.target.value })} />
+                      </FormField>
+                      <FormField label="Story Image Preview & Upload">
+                        <ImageUploadField
+                          currentValue={landingForm.story_image_url}
+                          onUploadSuccess={(url) => setLandingForm({ ...landingForm, story_image_url: url })}
+                        />
+                      </FormField>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: "1.5rem", background: "#f9fafb", borderRadius: 12 }}>
+                    <h4 style={{ marginBottom: "1rem", color: "#111827", fontSize: ".9rem", fontWeight: 700 }}>Shop Now Section</h4>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1rem" }}>
+                      <FormField label="Shop Now Title">
+                        <input type="text" value={landingForm.shopnow_title} onChange={(e) => setLandingForm({ ...landingForm, shopnow_title: e.target.value })} placeholder="Ready to Taste Tradition?" />
+                      </FormField>
+                      <FormField label="Shop Now Subtitle">
+                        <textarea rows={3} value={landingForm.shopnow_subtitle} onChange={(e) => setLandingForm({ ...landingForm, shopnow_subtitle: e.target.value })} />
+                      </FormField>
+                      <FormField label="Shop Now Image Preview & Upload">
+                        <ImageUploadField
+                          currentValue={landingForm.shopnow_image_url}
+                          onUploadSuccess={(url) => setLandingForm({ ...landingForm, shopnow_image_url: url })}
+                        />
+                      </FormField>
+                    </div>
+                  </div>
+
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "2rem" }}>
+                  <button type="submit" className="btn-primary" disabled={submitting}
+                    style={{ padding: ".75rem 2.5rem", borderRadius: 10, fontSize: "1rem" }}>
+                    {submitting ? "Saving Changes…" : "Save All Changes"}
+                  </button>
+                </div>
+              </form>
+            </SectionCard>
+          </>
+        )}
       </main>
     </div>
   );
@@ -404,6 +648,69 @@ function FormField({ label, children }) {
       {label}
       {children}
     </label>
+  );
+}
+
+function ImageUploadField({ onUploadSuccess, currentValue, label = "Change Image" }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const fileInputRef = React.useRef(null);
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    setError("");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await api.post("/uploads", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const fullUrl = res.data.url.startsWith("http") ? res.data.url : `${API_BASE}${res.data.url}`;
+      onUploadSuccess(fullUrl);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: ".5rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        {currentValue && (
+          <img src={currentValue} alt="Preview"
+            style={{ width: 60, height: 60, borderRadius: 10, objectFit: "cover", border: "1px solid #e5e7eb" }}
+          />
+        )}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current.click()}
+          disabled={uploading}
+          style={{
+            padding: ".5rem 1rem", borderRadius: 8, border: "1.5px solid #e5e7eb",
+            background: "#fff", fontSize: ".82rem", fontWeight: 600, color: "#374151",
+            cursor: "pointer", transition: "all .2s"
+          }}
+          onMouseEnter={(e) => e.target.style.borderColor = "#22c55e"}
+          onMouseLeave={(e) => e.target.style.borderColor = "#e5e7eb"}
+        >
+          {uploading ? "Uploading..." : label}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          style={{ display: "none" }}
+        />
+      </div>
+      {error && <span style={{ fontSize: ".7rem", color: "#dc2626" }}>{error}</span>}
+    </div>
   );
 }
 

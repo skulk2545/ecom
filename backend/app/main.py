@@ -1,8 +1,9 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import settings
-from .routers import auth, products, orders, users
+from .routers import auth, products, orders, users, settings as settings_router, uploads
 from .db.session import engine, Base
 from .models import *  # ensure models are loaded
 
@@ -30,6 +31,11 @@ def create_app() -> FastAPI:
     app.include_router(products.router, prefix="/api/products", tags=["products"])
     app.include_router(orders.router, prefix="/api/orders", tags=["orders"])
     app.include_router(users.router, prefix="/api/users", tags=["users"])
+    app.include_router(settings_router.router, prefix="/api/settings", tags=["settings"])
+    app.include_router(uploads.router, prefix="/api/uploads", tags=["uploads"])
+
+    # Serve static files from the uploads directory
+    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
     return app
 

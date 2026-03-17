@@ -61,7 +61,32 @@ def update_product(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 
     for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(product, field, value)
+        if field == "image_url" and value:
+            setattr(product, field, str(value))
+        else:
+            setattr(product, field, value)
+
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+@router.patch("/{product_id}", response_model=ProductRead)
+def patch_product(
+    product_id: int,
+    payload: ProductUpdate,
+    db: Session = Depends(get_db),
+    _admin=Depends(get_current_admin_user),
+) -> ProductRead:
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        if field == "image_url" and value:
+            setattr(product, field, str(value))
+        else:
+            setattr(product, field, value)
 
     db.commit()
     db.refresh(product)
